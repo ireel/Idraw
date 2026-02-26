@@ -1,0 +1,6 @@
+openai>=1.0.0
+diffusers>=0.24.0
+torch
+pillow
+opencv-python
+xformers; platform_system != "Windows"
