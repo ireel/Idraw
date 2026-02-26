@@ -36,15 +36,22 @@
 ## 3. 核心工作流 (Agent 交互时序)
 
 1.  **用户输入:** "画一个赛博朋克风格的武士少女，站在霓虹灯下"
-2.  **Agent 拆解任务:** * Agent 生成全局 JSON 配置：包含全局分辨率、随机种子等。
-3.  **Agent 执行阶段 1 (线稿):** * 生成 Prompt 1: `monochrome, lineart, clean lines, cyberpunk samurai girl, ...`
-    * 调用生图函数 -> 生成并保存 `01_lineart.png`。
-4.  **Agent 执行阶段 2 (底色):** * 生成 Prompt 2: `flat color, flat shading, base colors only, ...`
-    * 自动配置 ControlNet 权重 (例如 0.8) 并输入 `01_lineart.png`。
-    * 调用生图函数 -> 生成并保存 `02_flat_color.png`。
-5.  **Agent 执行阶段 3 (光影):** * 生成 Prompt 3: `dramatic lighting, neon rim light, deep shadows, cinematic...`
-    * 输入前两张图作为控制条件。
-    * 调用生图函数 -> 生成并保存 `03_shading_light.png`。
+2.  **Agent 拆解任务 (LLM):** 
+    * Agent 针对不同生成阶段生成独立的**英文 Tag 提示词 (Danbooru 风格)**：
+        * **Lineart Tags:** 侧重线条质量、构图、黑白 (`monochrome, sketch, ...`)。
+        * **Flat Color Tags:** 侧重固有色、图案、简单背景 (`flat color, simple background, ...`)。
+        * **Shading Tags:** 侧重光影方向、氛围、体积感 (`cinematic lighting, rim light, ...`)。
+3.  **Agent 执行阶段 1 (线稿 - Txt2Img):** 
+    * 使用 `Lineart Tags` 配合 Lineart LoRA。
+    * 调用生图函数 (文生图) -> 生成并保存 `01_lineart.png`。
+4.  **Agent 执行阶段 2 (底色 - Txt2Img + ControlNet):** 
+    * 使用 `Flat Color Tags`。
+    * 自动配置 ControlNet (Lineart) 权重 (例如 1.0) 并输入 `01_lineart.png` 进行约束。
+    * 调用生图函数 (基于线稿的受控文生图) -> 生成并保存 `02_flat_color.png`。
+5.  **Agent 执行阶段 3 (光影 - Img2Img + ControlNet):** 
+    * 使用 `Shading Tags`。
+    * 输入 `02_flat_color.png` 作为底图 (Init Image)，输入 `01_lineart.png` 作为 ControlNet 约束。
+    * 调用生图函数 (图生图) -> 生成并保存 `03_shading_light.png`。
 6.  **代码级合成 (阶段 4):**
     * 图像处理脚本自动将三层对齐叠加，输出 `04_final_composite.png`。
 

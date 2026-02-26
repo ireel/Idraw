@@ -4,21 +4,47 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
 from agent.llm_client import LLMClient
-from agent.prompts import build_flat_color_prompt, build_lineart_prompt, build_shading_prompt
+from agent.prompts import (
+    build_flat_color_prompt, 
+    build_lineart_prompt, 
+    build_shading_prompt,
+    DEFAULT_NEGATIVE_PROMPT
+)
 from engine.compositor import composite_layers
 from engine.generator import LayeredGenerator
 from engine.tools import create_session_dir, write_json
 
 
 def build_prompts(user_prompt, llm_client):
+    # Default fallback
+    prompts_data = {
+        "lineart_tags": user_prompt,
+        "flat_color_tags": user_prompt,
+        "shading_tags": user_prompt
+    }
+    
     refined_prompt = user_prompt
     if llm_client is not None:
-        refined_prompt = llm_client.expand_prompt(user_prompt)
+        try:
+            expanded = llm_client.expand_prompt(user_prompt)
+            if isinstance(expanded, dict):
+                prompts_data = expanded
+                # Use lineart tags as the "refined prompt" display for simplicity, or join them
+                refined_prompt = prompts_data.get("lineart_tags", user_prompt)
+            else:
+                # Fallback if somehow it returns a string (though we handled that in llm_client)
+                refined_prompt = str(expanded)
+                prompts_data = {k: refined_prompt for k in prompts_data}
+        except Exception as e:
+            print(f"Error expanding prompt: {e}")
+
     return {
-        "lineart": build_lineart_prompt(refined_prompt),
-        "flat_color": build_flat_color_prompt(refined_prompt),
-        "shading": build_shading_prompt(refined_prompt),
+        "lineart": build_lineart_prompt(prompts_data.get("lineart_tags", user_prompt)),
+        "flat_color": build_flat_color_prompt(prompts_data.get("flat_color_tags", user_prompt)),
+        "shading": build_shading_prompt(prompts_data.get("shading_tags", user_prompt)),
+        "negative": DEFAULT_NEGATIVE_PROMPT,
         "refined": refined_prompt,
     }
 
@@ -36,6 +62,7 @@ def parse_args():
 
 
 def main():
+    load_dotenv()
     args = parse_args()
     base_output_dir = Path(args.output_dir)
     session_dir = create_session_dir(base_output_dir, datetime.utcnow())

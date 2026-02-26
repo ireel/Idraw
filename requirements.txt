@@ -1,6 +1,10 @@
 openai>=1.0.0
-diffusers>=0.24.0
+diffusers>=0.30.0
+transformers>=4.44.0
+accelerate>=0.33.0
+peft>=0.12.0
 torch
 pillow
 opencv-python
-xformers; platform_system != "Windows"
+safetensors
+python-dotenv
